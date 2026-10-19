@@ -1,3 +1,7 @@
+export type BatchPutItem = {
+    storeName: string;
+    data: unknown;
+};
 export default class IndexedDBService {
     private dbName: string;
     private dbVersion: number;
@@ -115,5 +119,51 @@ export default class IndexedDBService {
         return this.__transaction(storeName, "readwrite", (store) =>
             store.delete(id),
         );
+    }
+    public async batchPut(items: BatchPutItem[]): Promise<void> {
+        if (items.length === 0) return;
+
+        const db = await this.init();
+
+        const storeNames = [...new Set(items.map((item) => item.storeName))];
+
+        return new Promise<void>((resolve, reject) => {
+            let transaction: IDBTransaction;
+
+            try {
+                transaction = db.transaction(storeNames, "readwrite");
+
+                transaction.oncomplete = () => resolve();
+
+                transaction.onabort = () => {
+                    reject(
+                        transaction.error ??
+                            new Error("Batch transaction aborted"),
+                    );
+                };
+
+                transaction.onerror = () => {
+                    reject(
+                        transaction.error ??
+                            new Error("Batch transaction failed"),
+                    );
+                };
+
+                for (const item of items) {
+                    transaction.objectStore(item.storeName).put(item.data);
+                }
+            } catch (error) {
+                try {
+                    // Abort if the transaction was opened but setup failed.
+                    if (typeof transaction! !== "undefined") {
+                        transaction!.abort();
+                    }
+                } catch {
+                    // It may already be inactive or aborted.
+                }
+
+                reject(error);
+            }
+        });
     }
 }

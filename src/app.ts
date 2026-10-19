@@ -9,6 +9,8 @@ import StorageManager from "./storage/StorageManager";
 import CategoryPopup from "./category/CategoryPopup";
 import type { CategoryType } from "./category/Category";
 import { ToastManager } from "./utilities/ToastManager";
+import { TimeSystem } from "./core/TimeSystem";
+const toastManager = new ToastManager();
 async function bootstrap() {
     const storageManager = new StorageManager();
     const accounts = await storageManager.getAllAccounts();
@@ -22,7 +24,11 @@ async function bootstrap() {
         transactions,
         categories,
     });
-    const domainOperator = new DomainOperator(liveStore, committer);
+    const domainOperator = new DomainOperator(
+        liveStore,
+        committer,
+        toastManager,
+    );
 
     const accountPopup = new AccountPopup(
         document.getElementById("popup-container")!,
@@ -64,6 +70,14 @@ async function bootstrap() {
     //replace later
     const accountsList = document.getElementById("accounts-list")!;
     const goalsList = document.getElementById("goals-list")!;
+    const transactionsSection = document.createElement("section");
+    const transactionsHeading = document.createElement("h2");
+    transactionsHeading.textContent = "Transactions";
+    const transactionsList = document.createElement("ul");
+    transactionsSection.append(transactionsHeading, transactionsList);
+    document
+        .getElementById("create-transaction-button")
+        ?.before(transactionsSection);
 
     function renderAccounts() {
         accountsList.replaceChildren();
@@ -107,23 +121,58 @@ async function bootstrap() {
         }
     }
 
+    function renderTransactions() {
+        transactionsList.replaceChildren();
+
+        const transactions = liveStore.transactionManager
+            .getAllTransactions()
+            .sort(
+                (a, b) =>
+                    b.date.localeCompare(a.date) ||
+                    b.createdAt.localeCompare(a.createdAt),
+            );
+
+        if (transactions.length === 0) {
+            const item = document.createElement("li");
+            item.textContent = "No transactions yet";
+            transactionsList.append(item);
+            return;
+        }
+
+        for (const transaction of transactions) {
+            const fromAccount =
+                liveStore.accountManager.get(transaction.fromAccountId)?.name ??
+                "Unknown account";
+            const destination =
+                transaction.type === "transfer" && transaction.toAccountId
+                    ? ` → ${liveStore.accountManager.get(transaction.toAccountId)?.name ?? "Unknown account"}`
+                    : "";
+            const category =
+                liveStore.categoryManager.get(transaction.categoryId)?.name ??
+                "Unknown category";
+            const item = document.createElement("li");
+            item.textContent = `${transaction.date} | ${transaction.type} | ${transaction.amount.toLocaleString()} | ${fromAccount}${destination} | ${category}${transaction.note ? ` | ${transaction.note}` : ""}`;
+            transactionsList.append(item);
+        }
+    }
+
     committer.eventEmitter.subscribe((data) => {
         console.log("Received commit event:", data);
         liveStore.updateStore(data as commit);
         renderAccounts();
         renderGoals();
+        renderTransactions();
     });
 
     renderAccounts();
     renderGoals();
+    renderTransactions();
 }
 
-const toast = new ToastManager();
-toast.init();
-toast.error("Transaction created", {
-    action: {
-        label: "undo",
-        onClick: (): void => console.log("hii"),
-    },
-} as any);
+// const ts = new TimeSystem({
+//     timezone: "America/New_York", // or fetch dynamically from user profile
+//     locale: "en-US",
+//     firstDayOfWeek: 1, // Monday
+// });
+// console.log(ts.now());
 void bootstrap();

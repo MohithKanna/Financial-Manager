@@ -4,8 +4,8 @@ interface TransactionData {
     readonly amount: number;
     readonly date: string;
     note?: string;
-    srcAccountId: string;
-    dstAccountId?: string;
+    fromAccountId: string;
+    toAccountId?: string;
     categoryId: string;
     readonly createdAt: string;
     updatedAt: string;
@@ -18,8 +18,8 @@ export interface CreateTransactionInput {
     amount: number;
     date: string;
     note?: string;
-    srcAccountId: string;
-    dstAccountId?: string;
+    fromAccountId: string;
+    toAccountId?: string;
     categoryId: string;
 }
 
@@ -30,8 +30,8 @@ class Transaction {
     readonly amount: number;
     readonly date: string;
     readonly note?: string;
-    readonly srcAccountId: string;
-    readonly dstAccountId?: string;
+    readonly fromAccountId: string;
+    readonly toAccountId?: string;
     readonly categoryId: string;
     readonly createdAt: string;
     readonly updatedAt: string;
@@ -41,8 +41,8 @@ class Transaction {
         this.amount = data.amount;
         this.date = data.date;
         this.note = data.note;
-        this.srcAccountId = data.srcAccountId;
-        this.dstAccountId = data.dstAccountId;
+        this.fromAccountId = data.fromAccountId;
+        this.toAccountId = data.toAccountId;
         this.categoryId = data.categoryId;
         this.createdAt = data.createdAt;
         this.updatedAt = data.updatedAt;
@@ -75,17 +75,17 @@ class Transaction {
             updatedAt: new Date().toISOString(),
         });
     }
-    withChangeSrcAccountId(srcAccountId: string): Transaction {
+    withChangeFromAccountId(fromAccountId: string): Transaction {
         return new Transaction({
             ...this,
-            srcAccountId,
+            fromAccountId,
             updatedAt: new Date().toISOString(),
         });
     }
-    withChangeDstAccountId(dstAccountId: string): Transaction {
+    withChangeToAccountId(toAccountId: string): Transaction {
         return new Transaction({
             ...this,
-            dstAccountId,
+            toAccountId,
             updatedAt: new Date().toISOString(),
         });
     }

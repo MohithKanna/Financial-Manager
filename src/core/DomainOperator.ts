@@ -5,9 +5,11 @@ import type { CreateCategoryInput } from "../category/Category";
 import CategoryOperator from "../category/CategoryOperator";
 import type { CreateGoalInput } from "../goal/Goal";
 import GoalOperator from "../goal/GoalOperator";
-import type { Committer } from "./Committer";
+import type { BatchCommit, Committer } from "./Committer";
 import TransactionOperator from "../transaction/TransactionOperator";
 import type { CreateTransactionInput } from "../transaction/Transaction";
+import type { ToastManager } from "../utilities/ToastManager";
+import type Transaction from "../transaction/Transaction";
 
 export default class DomainOperator {
     private store: LiveStore;
@@ -16,7 +18,12 @@ export default class DomainOperator {
     private categoryOperator: CategoryOperator;
     private goalOperator: GoalOperator;
     private transactionOperator: TransactionOperator;
-    constructor(liveStore: LiveStore, committer: Committer) {
+    private toastManager: ToastManager;
+    constructor(
+        liveStore: LiveStore,
+        committer: Committer,
+        toastManager: ToastManager,
+    ) {
         this.store = liveStore;
         this.committer = committer;
         this.transactionOperator = new TransactionOperator(
@@ -26,6 +33,7 @@ export default class DomainOperator {
         this.categoryOperator = new CategoryOperator(
             this.store.categoryManager,
         );
+        this.toastManager = toastManager;
         this.goalOperator = new GoalOperator(this.store.goalManager);
     }
     createGoal(input: CreateGoalInput) {
@@ -61,16 +69,74 @@ export default class DomainOperator {
             console.error("Error creating category:", error);
         }
     }
-    createTransaction(input: CreateTransactionInput) {
+    async createTransaction(input: CreateTransactionInput) {
         try {
+            this.accountOperator.checkAccounts(input);
             const transaction = this.transactionOperator.create(input);
-            void this.committer.transactionChanges({
-                event: "new_transaction",
-                payload: transaction,
+            await this.processTrasactionChanges(transaction);
+            this.toastManager.success("Transaction Created", {
+                action: {
+                    label: "undo",
+                    onClick: () => {
+                        console.log("undoing", transaction.id);
+                    },
+                },
             });
-        } catch (error) {
-            console.error("Error creating transaction:", error);
+        } catch (error: any) {
+            this.toastManager.error(error.message);
+            throw error;
         }
+    }
+    async processTrasactionChanges(tnx: Transaction) {
+        let batch: BatchCommit[] = [
+            { entity: "transaction", event: "new_transaction", payload: tnx },
+        ];
+        if (tnx.type === "income") {
+            batch.push({
+                entity: "account",
+                event: "update_account",
+                payload: this.accountOperator.updateAccountBalance(
+                    tnx.fromAccountId,
+                    tnx.amount,
+                    "credit",
+                ),
+            });
+        } else if (tnx.type === "expense") {
+            batch.push({
+                entity: "account",
+                event: "update_account",
+                payload: this.accountOperator.updateAccountBalance(
+                    tnx.fromAccountId,
+                    tnx.amount,
+                    "debit",
+                ),
+            });
+        } else {
+            if (!tnx.toAccountId) {
+                throw new Error("Destination account is required");
+            }
+            batch.push(
+                {
+                    entity: "account",
+                    event: "update_account",
+                    payload: this.accountOperator.updateAccountBalance(
+                        tnx.fromAccountId,
+                        tnx.amount,
+                        "debit",
+                    ),
+                },
+                {
+                    entity: "account",
+                    event: "update_account",
+                    payload: this.accountOperator.updateAccountBalance(
+                        tnx.toAccountId,
+                        tnx.amount,
+                        "credit",
+                    ),
+                },
+            );
+        }
+        await this.committer.batchChanges(batch);
     }
 
     archiveAccount(id: string) {

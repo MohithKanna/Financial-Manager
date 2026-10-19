@@ -21,8 +21,8 @@ class TransactionOperator {
             amount: input.amount,
             date: input.date,
             note: input.note,
-            srcAccountId: input.srcAccountId,
-            dstAccountId: input.dstAccountId,
+            fromAccountId: input.fromAccountId,
+            toAccountId: input.toAccountId,
             categoryId: input.categoryId,
             createdAt: now.toISOString(),
             updatedAt: now.toISOString(),
@@ -71,20 +71,20 @@ class TransactionOperator {
         }
         return transaction.withChangeAmount(amount);
     }
-    changeSrcAccountId(id: string, srcAccountId: string): Transaction {
+    changeFromAccountId(id: string, fromAccountId: string): Transaction {
         const transaction = this.manager?.getTransaction(id);
         if (!transaction) {
             throw new Error("Transaction not found");
         }
-        return transaction.withChangeSrcAccountId(srcAccountId);
+        return transaction.withChangeFromAccountId(fromAccountId);
     }
-    changeDstAccountId(id: string, dstAccountId: string): Transaction {
+    changeToAccountId(id: string, toAccountId: string): Transaction {
         const transaction = this.manager?.getTransaction(id);
         if (!transaction) {
             throw new Error("Transaction not found");
         }
 
-        return transaction.withChangeDstAccountId(dstAccountId);
+        return transaction.withChangeToAccountId(toAccountId);
     }
     changeType(id: string, type: TransactionType): Transaction {
         return this.get(id).withChangeType(type);

@@ -2,7 +2,7 @@ import type { Account } from "../account/Account";
 import type { Category } from "../category/Category";
 import type { Goal } from "../goal/Goal";
 import type Transaction from "../transaction/Transaction";
-import IndexedDBService from "./IndexedDB";
+import IndexedDBService, { type BatchPutItem } from "./IndexedDB";
 
 export default class StorageManager {
     private storage: IndexedDBService;
@@ -32,5 +32,25 @@ export default class StorageManager {
     }
     saveTransaction(transaction: Transaction): Promise<IDBValidKey> {
         return this.storage.put("transactions", transaction);
+    }
+    async batchPut(
+        items: {
+            entity: "account" | "transaction" | "goal" | "category";
+            data: Account | Transaction | Goal | Category;
+        }[],
+    ): Promise<void> {
+        const storeByEntity = {
+            account: "accounts",
+            transaction: "transactions",
+            goal: "goals",
+            category: "categories",
+        } as const;
+
+        const writes: BatchPutItem[] = items.map((item) => ({
+            storeName: storeByEntity[item.entity],
+            data: item.data,
+        }));
+
+        return this.storage.batchPut(writes);
     }
 }

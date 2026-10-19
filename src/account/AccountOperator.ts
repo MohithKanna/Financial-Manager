@@ -1,6 +1,7 @@
 import { Account, type CreateAccountInput } from "./Account";
 import type { AccountManager } from "./AccountManager";
 import { IdGenerator } from "../utilities/IdGenerator";
+import type { CreateTransactionInput } from "../transaction/Transaction";
 
 class AccountOperator {
     constructor(private manager: AccountManager) {}
@@ -50,6 +51,51 @@ class AccountOperator {
         const account = this.manager.get(id);
         if (!account) throw new Error("Account not found");
         return account.withChangeStatus("active");
+    }
+    private isActive(id: string): boolean {
+        if (!id) return false;
+        const account = this.manager.get(id);
+        if (!account || account.status !== "active") return false;
+        return true;
+    }
+    checkAccounts(input: CreateTransactionInput): void {
+        const { fromAccountId, toAccountId } = input;
+        if (!this.isActive(fromAccountId)) {
+            throw new Error("Invalid account");
+        }
+        if (input.type === "transfer") {
+            if (!toAccountId || !this.isActive(toAccountId)) {
+                throw new Error("Invalid destination account");
+            }
+            if (fromAccountId === toAccountId) {
+                throw new Error(
+                    "Source and destination accounts must be different",
+                );
+            }
+        }
+    }
+    updateAccountBalance(
+        id: string,
+        amount: number,
+        direction: "credit" | "debit",
+    ): Account {
+        const account = this.manager.get(id);
+
+        if (!account) {
+            throw new Error("Account not found");
+        }
+
+        const isOweAccount = account.ownerShip === "borrowed";
+
+        const increasesBalance = isOweAccount
+            ? direction === "debit"
+            : direction === "credit";
+
+        const newBalance = increasesBalance
+            ? account.currentBalance + amount
+            : account.currentBalance - amount;
+
+        return account.withChangeBalance(newBalance);
     }
 }
 

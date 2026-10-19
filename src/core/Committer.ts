@@ -9,6 +9,11 @@ export type commit = {
     event: string;
     payload: unknown;
 };
+export type BatchCommit = {
+    event: string;
+    entity: "account" | "transaction" | "goal" | "category";
+    payload: Account | Transaction | Goal | Category;
+};
 
 export class Committer {
     public eventEmitter: EventEmitter<object> = new EventEmitter();
@@ -19,6 +24,7 @@ export class Committer {
 
     async accountChanges(data: commit) {
         try {
+            console.log(data);
             await this.storageManager.saveAccount(data.payload as Account);
             this.eventEmitter.notify(data);
         } catch (error) {
@@ -49,6 +55,18 @@ export class Committer {
             this.eventEmitter.notify(data);
         } catch (error) {
             console.error(error);
+        }
+    }
+    async batchChanges(changes: BatchCommit[]): Promise<void> {
+        await this.storageManager.batchPut(
+            changes.map(({ entity, payload }) => ({
+                entity,
+                data: payload,
+            })),
+        );
+
+        for (const { event, payload } of changes) {
+            this.eventEmitter.notify({ event, payload });
         }
     }
 }

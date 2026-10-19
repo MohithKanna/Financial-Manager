@@ -90,7 +90,7 @@ export default class TransactionPopup {
                         <label for="transaction-src-account">Account</label>
                         <select
                             id="transaction-src-account"
-                            name="srcAccountId"
+                            name="fromAccountId"
                             required
                         ></select>
                     </div>
@@ -101,7 +101,7 @@ export default class TransactionPopup {
                         </label>
                         <select
                             id="transaction-dst-account"
-                            name="dstAccountId"
+                            name="toAccountId"
                         ></select>
                     </div>
 
@@ -137,8 +137,8 @@ export default class TransactionPopup {
             throw new Error("Error banner not found");
         }
 
-        const sourceSelect = form.elements.namedItem("srcAccountId");
-        const destinationSelect = form.elements.namedItem("dstAccountId");
+        const sourceSelect = form.elements.namedItem("fromAccountId");
+        const destinationSelect = form.elements.namedItem("toAccountId");
         const transferFields = form.querySelector("[data-transfer-only]");
         const typeSelect = form.elements.namedItem("type");
         const categorySelect = form.elements.namedItem("categoryId");
@@ -236,10 +236,10 @@ export default class TransactionPopup {
                 amount: Number(formData.get("amount")),
                 date: String(formData.get("date") ?? ""),
                 categoryId: String(formData.get("categoryId") ?? "").trim(),
-                srcAccountId: String(formData.get("srcAccountId") ?? ""),
-                dstAccountId:
+                fromAccountId: String(formData.get("fromAccountId") ?? ""),
+                toAccountId:
                     type === "transfer"
-                        ? String(formData.get("dstAccountId") ?? "")
+                        ? String(formData.get("toAccountId") ?? "")
                         : undefined,
                 note: String(formData.get("note") ?? "").trim() || undefined,
             };
@@ -287,9 +287,16 @@ export default class TransactionPopup {
                     setError(error);
                     return;
                 }
-
-                this.onSuccess(input);
-                this.close(popup);
+                try {
+                    this.onSuccess(input);
+                    this.close(popup);
+                } catch (error) {
+                    setError(
+                        error instanceof Error && error.message
+                            ? error.message
+                            : "Unable to create transaction",
+                    );
+                }
             },
             { signal },
         );
